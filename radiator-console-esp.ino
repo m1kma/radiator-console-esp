@@ -8,23 +8,27 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
-#include <LiquidCrystal.h>
+#include <LiquidCrystal_I2C.h>
 #include "arduino_secrets.h"
 
-const int RS = D2, EN = D3, d4 = D5, d5 = D6, d6 = D7, d7 = D1;   
-LiquidCrystal lcd(RS, EN, d4, d5, d6, d7);
+//const int RS = D2, EN = D3, d4 = D5, d5 = D6, d6 = D7, d7 = D1;   
+//LiquidCrystal lcd(RS, EN, d4, d5, d6, d7);
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 const char* ssid = SECRET_SSID;
 const char* password = SECRET_PASS;
-const char* host = SECRET_AWS_HOST;
+const char* host_dev = SECRET_AWS_HOST_DEV;
+const char* host_test = SECRET_AWS_HOST_TEST;
+const char* host_prod = SECRET_AWS_HOST_PROD;
 const int httpsPort = 443;
 
 // SHA1 fingerprint of the certificate
 const char* fingerprint = "7B C9 47 AE F4 1E F6 79 F9 B5 40 29 07 61 7B 66 93 17 5B 68";
 
-#define ALARMS_LED D0
+#define ALARMS_LED D3
 #define PIPE_FAILED_LED D4
-#define PIPE_RUNNING_LED D8
+#define PIPE_RUNNING_LED D5
 
 void setup() {
   Serial.begin(115200);
@@ -35,11 +39,12 @@ void setup() {
 
   Serial.print("START");
 
-  lcd.begin(16, 2);
+  lcd.init();
+  lcd.backlight();
 
   lcd.print("    Radiator    ");
   lcd.setCursor(0, 1);
-  lcd.print(" ver 17.02.2019 ");
+  lcd.print(" ver 22.02.2019 ");
 
   delay(3000);
   lcd.clear();
@@ -66,53 +71,24 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   lcd.setCursor(0, 0);
-  lcd.print("Wifi connected");
-}
-
-
-JsonObject& parseJSON(String payload) {
-
-  // Length (with one extra character for the null terminator)
-  int str_len = payload.length() + 1; 
-  
-  // Prepare the character array (the buffer) 
-  char json[str_len];
-  
-  // Copy it over 
-  payload.toCharArray(json, str_len);
-  
-  //const size_t capacity = JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(1) + JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(6) + 800;
-  //const size_t capacity = JSON_ARRAY_SIZE(0) + 2*JSON_ARRAY_SIZE(1) + JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(7) + 390;
-  const size_t capacity = 2*JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(1) + JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(7) + 800;
-
-
-  //Serial.println("json size:");
-  //Serial.print(size_t.print());
-
-  DynamicJsonBuffer jsonBuffer(capacity);
-  
-  JsonObject& root = jsonBuffer.parseObject(json);  
-  JsonObject& body = root["body"];
-  
-  bool body_alarms_raised = body["alarms_raised"]; // true
-  bool body_pipelines_running = body["pipelines_running"]; // false
-  bool body_pipelines_failed = body["pipelines_failed"]; // false
-  
-  const char* body_alarms_list_0 = body["alarms_list"][0]; // "e2e-runner-test"
-  const char* body_pipelines_running_list_0 = body["pipelines_running_list"][0]; // "e2e-runner-test"
-
-  Serial.println(body_alarms_raised);
-  Serial.println(body_pipelines_running);
-  Serial.println(body_pipelines_failed);
-  Serial.println(body_alarms_list_0);
-  Serial.println(body_pipelines_running_list_0);
-
-  return body;
+  lcd.print("Wifi connected     ");
+  lcd.setCursor(0, 1);
+  lcd.print("Call AWS...      ");
 }
 
 
 void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    callAWS(host_dev);
+  } else {
+    lcd.print("Wifi Conn lost   ");
+  }
+}
 
+
+
+void callAWS(const char* host) {
+  
   lcd.setCursor(15,0);
   lcd.print(":");
   
@@ -120,20 +96,18 @@ void loop() {
   WiFiClientSecure client;
   Serial.print("connecting to ");
   Serial.println(host);
+
+  // ###### Open HTTP connection #######
   
   if (!client.connect(host, httpsPort)) {
-    lcd.clear();
     Serial.println("connection failed");
-    lcd.print("connection fail");
+    lcd.print("Connection fail");
     delay(10000);
     return;
   }
 
-  if (client.verify(fingerprint, host)) {
-    Serial.println("certificate matches");
-  } else {
+  if (!client.verify(fingerprint, host)) {
     Serial.println("certificate doesn't match");
-    lcd.clear();
     lcd.print("Cert not match");
     delay(10000);
     return;
@@ -143,8 +117,8 @@ void loop() {
   lcd.print(".");
 
   String url = "/dev";
-  Serial.print("requesting URL: ");
-  Serial.println(url);
+
+  // ###### Send GET Request ######
 
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
@@ -172,10 +146,7 @@ void loop() {
   client.stop();
   
   Serial.println("reply was:");
-  Serial.println("==========");
   Serial.println(line);
-  Serial.println("==========");
-  Serial.println("closing connection");
 
   lcd.setCursor(15,0);
   lcd.print(" ");
@@ -186,12 +157,11 @@ void loop() {
   bool pipelines_running = jsonbody["pipelines_running"];
   bool pipelines_failed = jsonbody["pipelines_failed"];
 
-  // turn leds off
+// ###### Set LEDs ######
+
   digitalWrite(ALARMS_LED, LOW);
   digitalWrite(PIPE_FAILED_LED, LOW);
   digitalWrite(PIPE_RUNNING_LED, LOW);
-
-// ###### Set LEDs ######
 
   if (alarms_raised == true) {
     digitalWrite(ALARMS_LED, HIGH);
@@ -216,10 +186,6 @@ void loop() {
     for (int i=0; i < 10; i++) {
     
       if (alarms_raised == true) {  
-
-        //lcd.clear();
-        //delay(500);
-
         lcd.setCursor(0,0);
         lcd.print("Alarms:       ");
         lcd.setCursor(0,1);
@@ -229,7 +195,6 @@ void loop() {
       }  
     
       if (pipelines_failed == true) {
-          
         lcd.setCursor(0,0);
         lcd.print("Pipes failed: ");
         lcd.setCursor(0,1);
@@ -239,9 +204,8 @@ void loop() {
       }  
         
       if (pipelines_running == true) {  
-
         lcd.setCursor(0,0);
-        lcd.print("Pipes running:");
+        lcd.print("Pipes running:  ");
         lcd.setCursor(0,1);
         lcd.print(pipes_running_0);
   
@@ -250,12 +214,43 @@ void loop() {
     }
   } else {    
     lcd.clear();
-    lcd.print("       OK       ");
+    lcd.print("     All OK     ");
 
-    delay(120000);
+    delay(60000);
   }
+}
 
-  Serial.println("==========");
 
-  //delay(120000);
+JsonObject& parseJSON(String payload) {
+
+  // Length (with one extra character for the null terminator)
+  int str_len = payload.length() + 1; 
+  
+  // Prepare the character array (the buffer) 
+  char json[str_len];
+  
+  // Copy it over 
+  payload.toCharArray(json, str_len);
+
+  const size_t capacity = 2*JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(1) + JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(7) + 800;
+
+  DynamicJsonBuffer jsonBuffer(capacity);
+  
+  JsonObject& root = jsonBuffer.parseObject(json);  
+  JsonObject& body = root["body"];
+  
+  bool body_alarms_raised = body["alarms_raised"];
+  bool body_pipelines_running = body["pipelines_running"];
+  bool body_pipelines_failed = body["pipelines_failed"];
+  
+  const char* body_alarms_list_0 = body["alarms_list"][0];
+  const char* body_pipelines_running_list_0 = body["pipelines_running_list"][0];
+
+  Serial.println(body_alarms_raised);
+  Serial.println(body_pipelines_running);
+  Serial.println(body_pipelines_failed);
+  Serial.println(body_alarms_list_0);
+  Serial.println(body_pipelines_running_list_0);
+
+  return body;
 }
