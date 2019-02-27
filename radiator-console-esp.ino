@@ -11,9 +11,6 @@
 #include <LiquidCrystal_I2C.h>
 #include "arduino_secrets.h"
 
-//const int RS = D2, EN = D3, d4 = D5, d5 = D6, d6 = D7, d7 = D1;   
-//LiquidCrystal lcd(RS, EN, d4, d5, d6, d7);
-
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 const char* ssid = SECRET_SSID;
@@ -25,37 +22,36 @@ const char* key_prod = SECRET_AWS_KEY_PROD;
 const int httpsPort = 443;
 
 // SHA1 fingerprint of the certificate
-const char* fingerprint = "7B C9 47 AE F4 1E F6 79 F9 B5 40 29 07 61 7B 66 93 17 5B 68";
+const char* fingerprint = "A3 7E 7A F5 3F F0 91 A3 48 45 9E 94 76 AA 18 1A ED B1 FA 96";
 
 #define ALARMS_LED D3
-#define PIPE_FAILED_LED_DEV D4
 #define PIPE_RUNNING_LED_DEV D5
-#define PIPE_FAILED_LED_PROD D6
+#define PIPE_FAILED_LED_DEV D4
+#define PIPE_RUNNING_LED_TEST D0
+#define PIPE_FAILED_LED_TEST D0
 #define PIPE_RUNNING_LED_PROD D7
+#define PIPE_FAILED_LED_PROD D6
 
 void setup() {
   Serial.begin(115200);
   
   pinMode(ALARMS_LED, OUTPUT);
-  pinMode(PIPE_FAILED_LED_DEV, OUTPUT);
   pinMode(PIPE_RUNNING_LED_DEV, OUTPUT);
-  pinMode(PIPE_FAILED_LED_PROD, OUTPUT);
+  pinMode(PIPE_FAILED_LED_DEV, OUTPUT);
+  pinMode(PIPE_RUNNING_LED_TEST, OUTPUT);
+  pinMode(PIPE_FAILED_LED_TEST, OUTPUT);
   pinMode(PIPE_RUNNING_LED_PROD, OUTPUT);
+  pinMode(PIPE_FAILED_LED_PROD, OUTPUT);
 
   Serial.print("START");
 
   lcd.init();
   lcd.backlight();
 
-  lcd.print("    Radiator    ");
-  lcd.setCursor(0, 1);
-  lcd.print(" ver 22.02.2019 ");
-
-  delay(3000);
-  lcd.clear();
+  initConsole();
   
   Serial.println();
-  Serial.print("connecting to ");
+  Serial.print("Connecting to ");
   Serial.println(ssid);
 
   lcd.setCursor(0, 0);
@@ -76,9 +72,9 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   lcd.setCursor(0, 0);
-  lcd.print("Wifi connected     ");
+  lcd.print("Wifi connected  ");
   lcd.setCursor(0, 1);
-  lcd.print("Call AWS...      ");
+  lcd.print("Call AWS...     ");
 }
 
 
@@ -86,9 +82,10 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     
     String data_dev = callAWS(host_dev, "D");
+    String data_test = callAWS(host_test, "T");
     String data_prod = callAWS(host_prod, "P");
     
-    setConsole(data_dev, "", data_prod);
+    setConsole(data_dev, data_test, data_prod);
         
   } else {
     lcd.print("Wifi Conn lost   ");
@@ -158,6 +155,7 @@ String callAWS(const char* host, String env) {
 
 void setConsole(String data_dev, String data_test, String data_prod) {
 
+// ###### Parse JSON #######
   JsonObject& json_dev = parseJSON(data_dev);
   
   bool pipelines_running_dev = json_dev["pipelines_running"];
@@ -165,6 +163,12 @@ void setConsole(String data_dev, String data_test, String data_prod) {
   const String pipes_failed_0_dev = json_dev["pipelines_failed_list"][0]; 
   const String pipes_running_0_dev = json_dev["pipelines_running_list"][0]; 
 
+  JsonObject& json_test = parseJSON(data_test);
+  
+  bool pipelines_running_test = json_test["pipelines_running"];
+  bool pipelines_failed_test = json_test["pipelines_failed"];  
+  const String pipes_failed_0_test = json_test["pipelines_failed_list"][0]; 
+  const String pipes_running_0_test = json_test["pipelines_running_list"][0]; 
 
   JsonObject& json_prod = parseJSON(data_prod);
   
@@ -178,85 +182,124 @@ void setConsole(String data_dev, String data_test, String data_prod) {
 
 // ###### Set LEDs ######
 
-  digitalWrite(PIPE_FAILED_LED_DEV, LOW);
   digitalWrite(PIPE_RUNNING_LED_DEV, LOW);
+  digitalWrite(PIPE_FAILED_LED_DEV, LOW);
+  digitalWrite(PIPE_RUNNING_LED_TEST, LOW);
+  digitalWrite(PIPE_FAILED_LED_TEST, LOW);
   digitalWrite(ALARMS_LED, LOW);
-  digitalWrite(PIPE_FAILED_LED_PROD, LOW);
   digitalWrite(PIPE_RUNNING_LED_PROD, LOW);
+  digitalWrite(PIPE_FAILED_LED_PROD, LOW);
 
   if (pipelines_running_dev == true) { digitalWrite(PIPE_RUNNING_LED_DEV, HIGH); }
   if (pipelines_failed_dev == true) { digitalWrite(PIPE_FAILED_LED_DEV, HIGH); }
+  if (pipelines_running_test == true) { digitalWrite(PIPE_RUNNING_LED_TEST, HIGH); }
+  if (pipelines_failed_test == true) { digitalWrite(PIPE_FAILED_LED_TEST, HIGH); }
   if (alarms_raised_prod == true) { digitalWrite(ALARMS_LED, HIGH); }
   if (pipelines_running_prod == true) { digitalWrite(PIPE_RUNNING_LED_PROD, HIGH); }
   if (pipelines_failed_prod == true) { digitalWrite(PIPE_FAILED_LED_PROD, HIGH); }  
 
 // ###### Set LCD #######
 
+  for (int i=0; i < 5; i++) {
 
-  if (pipelines_running_dev == true || pipelines_failed_dev == true) {
+    if (pipelines_failed_dev == true) {
+      lcd.setCursor(0,0);
+      lcd.print("Pipe fail DEV:  ");
+      lcd.setCursor(0,1);
+      lcd.print(pipes_failed_0_dev);
 
-    for (int i=0; i < 5; i++) {
-    
-      if (pipelines_failed_dev == true) {
-        lcd.setCursor(0,0);
-        lcd.print("Pipes fail DEV: ");
-        lcd.setCursor(0,1);
-        lcd.print(pipes_failed_0_dev);
-  
-        delay(5000);
-      }  
-        
-      if (pipelines_running_dev == true) {  
-        lcd.setCursor(0,0);
-        lcd.print("Pipes run DEV:  ");
-        lcd.setCursor(0,1);
-        lcd.print(pipes_running_0_dev);
-  
-        delay(5000);
-      }  
+      delay(5000);
+    } 
+    else if (pipelines_running_dev == true) {  
+      lcd.setCursor(0,0);
+      lcd.print("Pipe run DEV:   ");
+      lcd.setCursor(0,1);
+      lcd.print(pipes_running_0_dev);
+
+      delay(5000);
+    }  
+    else if (pipelines_failed_test == true) {
+      lcd.setCursor(0,0);
+      lcd.print("Pipe fail TEST: ");
+      lcd.setCursor(0,1);
+      lcd.print(pipes_failed_0_test);
+
+      delay(5000);
+    }  
+    else if (pipelines_running_test == true) {  
+      lcd.setCursor(0,0);
+      lcd.print("Pipe run TEST:  ");
+      lcd.setCursor(0,1);
+      lcd.print(pipes_running_0_test);
+
+      delay(5000);
+    }  
+    else if (alarms_raised_prod == true) {  
+      lcd.setCursor(0,0);
+      lcd.print("Alarms PROD:    ");
+      lcd.setCursor(0,1);
+      lcd.print(alarms_0_prod);
+
+      delay(5000);
+    }
+    else if (pipelines_failed_prod == true) {
+      lcd.setCursor(0,0);
+      lcd.print("Pipe fail PROD: ");
+      lcd.setCursor(0,1);
+      lcd.print(pipes_failed_0_prod);
+
+      delay(5000);
+    }  
+    else if (pipelines_running_prod == true) {  
+      lcd.setCursor(0,0);
+      lcd.print("Pipe run PROD:  ");
+      lcd.setCursor(0,1);
+      lcd.print(pipes_running_0_prod);
+
+      delay(5000);
+    } 
+    else {  
+      lcd.clear();
+      lcd.print("     All OK     ");
+
+      delay(60000);
+
+      break;
     }
   }
-
-  if (alarms_raised_prod == true || pipelines_running_prod == true || pipelines_failed_prod == true) {
-
-    for (int i=0; i < 5; i++) {
-
-      if (alarms_raised_prod == true) {  
-        lcd.setCursor(0,0);
-        lcd.print("Alarms PROD:     ");
-        lcd.setCursor(0,1);
-        lcd.print(alarms_0_prod);
-  
-        delay(5000);
-      }  
-    
-      if (pipelines_failed_prod == true) {
-        lcd.setCursor(0,0);
-        lcd.print("Pipes fail PROD: ");
-        lcd.setCursor(0,1);
-        lcd.print(pipes_failed_0_prod);
-  
-        delay(5000);
-      }  
-        
-      if (pipelines_running_prod == true) {  
-        lcd.setCursor(0,0);
-        lcd.print("Pipes run PROD:  ");
-        lcd.setCursor(0,1);
-        lcd.print(pipes_running_0_prod);
-  
-        delay(5000);
-      }  
-    }
-  } else {    
-  
-    lcd.clear();
-    lcd.print("     All OK     ");
-
-    delay(60000);
-  }  
 }
 
+void initConsole() {
+
+  lcd.setCursor(0, 0);
+  lcd.print("  AWS Radiator  ");
+  delay(500);
+  lcd.setCursor(0, 1);
+  lcd.print(" ver 28.02.2019 ");
+
+  digitalWrite(PIPE_RUNNING_LED_DEV, HIGH);
+  digitalWrite(PIPE_FAILED_LED_DEV, HIGH);
+  delay(250);
+  digitalWrite(PIPE_RUNNING_LED_TEST, HIGH);
+  digitalWrite(PIPE_FAILED_LED_TEST, HIGH);
+  delay(250);
+  digitalWrite(PIPE_RUNNING_LED_PROD, HIGH);
+  digitalWrite(PIPE_FAILED_LED_PROD, HIGH);
+  delay(250);
+  digitalWrite(ALARMS_LED, HIGH);
+
+  delay(2000);
+
+  digitalWrite(PIPE_RUNNING_LED_DEV, LOW);
+  digitalWrite(PIPE_FAILED_LED_DEV, LOW);
+  digitalWrite(PIPE_RUNNING_LED_TEST, LOW);
+  digitalWrite(PIPE_FAILED_LED_TEST, LOW);
+  digitalWrite(PIPE_RUNNING_LED_PROD, LOW);
+  digitalWrite(PIPE_FAILED_LED_PROD, LOW);
+  digitalWrite(ALARMS_LED, LOW);
+
+  lcd.clear();
+}
 
 JsonObject& parseJSON(String payload) {
 
@@ -269,7 +312,7 @@ JsonObject& parseJSON(String payload) {
   // Copy it over 
   payload.toCharArray(json, str_len);
 
-  const size_t capacity = 2*JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(1) + JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(7) + 800;
+  const size_t capacity = 3*JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(8) + 800;
 
   DynamicJsonBuffer jsonBuffer(capacity);
   
