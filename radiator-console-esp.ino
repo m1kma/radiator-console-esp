@@ -25,10 +25,10 @@ const int httpsPort = 443;
 const char* fingerprint = "A3 7E 7A F5 3F F0 91 A3 48 45 9E 94 76 AA 18 1A ED B1 FA 96";
 
 #define ALARMS_LED D3
-#define PIPE_RUNNING_LED_DEV D5
-#define PIPE_FAILED_LED_DEV D4
-#define PIPE_RUNNING_LED_TEST D0
-#define PIPE_FAILED_LED_TEST D0
+#define PIPE_RUNNING_LED_DEV D8
+#define PIPE_FAILED_LED_DEV D0
+#define PIPE_RUNNING_LED_TEST D5
+#define PIPE_FAILED_LED_TEST D4
 #define PIPE_RUNNING_LED_PROD D7
 #define PIPE_FAILED_LED_PROD D6
 
@@ -119,7 +119,7 @@ String callAWS(const char* host, String env) {
     return "";
   }
 
-  String url = "/dev";
+  String url = "/dev/status";
 
   // ###### Send GET Request ######
 
@@ -317,14 +317,14 @@ JsonObject& parseJSON(String payload) {
   DynamicJsonBuffer jsonBuffer(capacity);
   
   JsonObject& root = jsonBuffer.parseObject(json);  
-  JsonObject& body = root["body"];
+  //JsonObject& body = root["body"];
   
-  bool body_alarms_raised = body["alarms_raised"];
-  bool body_pipelines_running = body["pipelines_running"];
-  bool body_pipelines_failed = body["pipelines_failed"];
+  bool body_alarms_raised = root["alarms_raised"];
+  bool body_pipelines_running = root["pipelines_running"];
+  bool body_pipelines_failed = root["pipelines_failed"];
   
-  const char* body_alarms_list_0 = body["alarms_list"][0];
-  const char* body_pipelines_running_list_0 = body["pipelines_running_list"][0];
+  const char* body_alarms_list_0 = root["alarms_list"][0];
+  const char* body_pipelines_running_list_0 = root["pipelines_running_list"][0];
 
   Serial.println(body_alarms_raised);
   Serial.println(body_pipelines_running);
@@ -332,5 +332,5 @@ JsonObject& parseJSON(String payload) {
   Serial.println(body_alarms_list_0);
   Serial.println(body_pipelines_running_list_0);
 
-  return body;
+  return root;
 }
