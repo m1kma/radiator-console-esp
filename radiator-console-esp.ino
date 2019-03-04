@@ -30,13 +30,13 @@ const int httpsPort = 443;
 // SHA1 fingerprint of the certificate
 const char* fingerprint = "A3 7E 7A F5 3F F0 91 A3 48 45 9E 94 76 AA 18 1A ED B1 FA 96";
 
-#define ALARMS_LED D3
+#define ALARMS_LED D0
 #define PIPE_RUNNING_LED_DEV D8
-#define PIPE_FAILED_LED_DEV D0
-#define PIPE_RUNNING_LED_TEST D5
-#define PIPE_FAILED_LED_TEST D4
-#define PIPE_RUNNING_LED_PROD D7
-#define PIPE_FAILED_LED_PROD D6
+#define PIPE_FAILED_LED_DEV D7
+#define PIPE_RUNNING_LED_TEST D6
+#define PIPE_FAILED_LED_TEST D5
+#define PIPE_RUNNING_LED_PROD D4
+#define PIPE_FAILED_LED_PROD D3
 
 void setup() {
   Serial.begin(115200);
@@ -58,13 +58,13 @@ void setup() {
   
   Serial.println();
   Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.println(ssid_work);
 
   // Try WORK network
   lcd.setCursor(0, 0);
   lcd.print("Connecting...");
   lcd.setCursor(0, 1);
-  lcd.print(ssid);
+  lcd.print(ssid_work);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid_work, password_work);
@@ -84,7 +84,7 @@ void setup() {
     lcd.setCursor(0, 0);
     lcd.print("Connecting...");
     lcd.setCursor(0, 1);
-    lcd.print(ssid);
+    lcd.print(ssid_home);
 
     WiFi.begin(ssid_home, password_home);
     
