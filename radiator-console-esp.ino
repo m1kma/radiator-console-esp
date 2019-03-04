@@ -13,12 +13,18 @@
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-const char* ssid = SECRET_SSID;
-const char* password = SECRET_PASS;
+const char* ssid_home = SECRET_SSID_HOME;
+const char* password_home = SECRET_PASS_HOME;
+const char* ssid_work = SECRET_SSID_WORK;
+const char* password_work = SECRET_PASS_WORK;
+
 const char* host_dev = SECRET_AWS_HOST_DEV;
 const char* host_test = SECRET_AWS_HOST_TEST;
 const char* host_prod = SECRET_AWS_HOST_PROD;
-const char* key_prod = SECRET_AWS_KEY_PROD;
+const char* api_key_dev = SECRET_AWS_KEY_DEV;
+const char* api_key_test = SECRET_AWS_KEY_TEST;
+const char* api_key_prod = SECRET_AWS_KEY_PROD;
+
 const int httpsPort = 443;
 
 // SHA1 fingerprint of the certificate
@@ -54,51 +60,75 @@ void setup() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
 
+  // Try WORK network
   lcd.setCursor(0, 0);
   lcd.print("Connecting...");
   lcd.setCursor(0, 1);
   lcd.print(ssid);
-  
+
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  
+  WiFi.begin(ssid_work, password_work);
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+
+    if (WiFi.status() == WL_NO_SSID_AVAIL) {
+      WiFi.disconnect();
+      break;
+    }
   }
-  
+
+  // Try HOME network 
+  if (WiFi.status() != WL_CONNECTED) {
+    lcd.setCursor(0, 0);
+    lcd.print("Connecting...");
+    lcd.setCursor(0, 1);
+    lcd.print(ssid);
+
+    WiFi.begin(ssid_home, password_home);
+    
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+  }
+
+
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
   lcd.setCursor(0, 0);
-  lcd.print("Wifi connected  ");
-  lcd.setCursor(0, 1);
+  lcd.print("Wifi connected  ");  
+  delay(2000);
+  lcd.setCursor(0, 0);
   lcd.print("Call AWS...     ");
+  lcd.setCursor(0, 1);
+  lcd.print("                ");
 }
 
 
 void loop() {
-  if (WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED) {    
+    String data_dev = callAWS(host_dev, "D", api_key_dev);
+    String data_test = callAWS(host_test, "T", api_key_test);
+    String data_prod = callAWS(host_prod, "P", api_key_prod);
     
-    String data_dev = callAWS(host_dev, "D");
-    String data_test = callAWS(host_test, "T");
-    String data_prod = callAWS(host_prod, "P");
-    
-    setConsole(data_dev, data_test, data_prod);
-        
+    setConsole(data_dev, data_test, data_prod);        
   } else {
     lcd.print("Wifi Conn lost   ");
   }
 }
 
 
-String callAWS(const char* host, String env) {
+
+String callAWS(const char* host, String env, String api_key) {
   
+  // Print status character to the LCD
   lcd.setCursor(15,0);
   lcd.print(env);
-  
-  // Use WiFiClientSecure class to create TLS connection
+
   WiFiClientSecure client;
   Serial.print("connecting to ");
   Serial.println(host);
@@ -125,7 +155,8 @@ String callAWS(const char* host, String env) {
 
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
-               "User-Agent: RadiatorConsoleESP\r\n" +
+               "User-Agent: ArduinoRadiatorConsole\r\n" +
+               "x-api-key: " + api_key + "\r\n" +
                "Connection: close\r\n\r\n");
 
   Serial.println("request sent");
@@ -152,7 +183,9 @@ String callAWS(const char* host, String env) {
 }
 
 
-
+/*
+ * Parse response JSON content and set console component status
+ */
 void setConsole(String data_dev, String data_test, String data_prod) {
 
 // ###### Parse JSON #######
@@ -269,33 +302,38 @@ void setConsole(String data_dev, String data_test, String data_prod) {
   }
 }
 
+/*
+ * Initialize console leds and LCD
+ */
 void initConsole() {
 
   lcd.setCursor(0, 0);
   lcd.print("  AWS Radiator  ");
-  delay(500);
   lcd.setCursor(0, 1);
-  lcd.print(" ver 28.02.2019 ");
+  lcd.print(" ver 04.03.2019 ");
 
   digitalWrite(PIPE_RUNNING_LED_DEV, HIGH);
   digitalWrite(PIPE_FAILED_LED_DEV, HIGH);
-  delay(250);
+  delay(1000);
   digitalWrite(PIPE_RUNNING_LED_TEST, HIGH);
   digitalWrite(PIPE_FAILED_LED_TEST, HIGH);
-  delay(250);
+  delay(1000);
   digitalWrite(PIPE_RUNNING_LED_PROD, HIGH);
   digitalWrite(PIPE_FAILED_LED_PROD, HIGH);
-  delay(250);
+  delay(1000);
   digitalWrite(ALARMS_LED, HIGH);
 
   delay(2000);
 
   digitalWrite(PIPE_RUNNING_LED_DEV, LOW);
   digitalWrite(PIPE_FAILED_LED_DEV, LOW);
+  delay(500);
   digitalWrite(PIPE_RUNNING_LED_TEST, LOW);
   digitalWrite(PIPE_FAILED_LED_TEST, LOW);
+  delay(500);
   digitalWrite(PIPE_RUNNING_LED_PROD, LOW);
   digitalWrite(PIPE_FAILED_LED_PROD, LOW);
+  delay(500);
   digitalWrite(ALARMS_LED, LOW);
 
   lcd.clear();
