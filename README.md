@@ -1,6 +1,6 @@
 # AWS Radiator Console for the ESP8266
 ## Introduction
-The Radiator Console is an electronic device that is used to monitor an AWS cloud service alarms and code pipeline status. The console contains Led lights and LCD screen to show the AWS status messages. The backend service for the console is a custom AWS Lambda function that provides a dedicated REST JSON response. [Link to the Lambda repository](https://github.com/m1kma/radiator-console-backend)
+The Radiator Console is used to monitor the AWS cloud service alarms and code pipeline status. The console contains Led lights and LCD screen to show the AWS status messages. The backend service for the console is a custom AWS Lambda function that provides a dedicated REST JSON response. [Link to the Lambda repository](https://github.com/m1kma/radiator-console-backend)
 
 My implementaion is built on top of the AWS but the backend can be virtually any REST service that provides a suitable JSON response.
 
