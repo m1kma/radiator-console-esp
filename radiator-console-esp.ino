@@ -1,8 +1,8 @@
 /*
- * Mika Mäkelä - 2019
+ * (c) Mika Mäkelä - 2019
  * 
- * Oldschool AWS Radiator.
- * Show AWS alerts and pipelines by leds and LCD.
+ * The program for the electronic AWS Radiator Console.
+ * Show AWS alerts and code pipeline status by LEDs and LCD.
  */
 
 #include <ESP8266WiFi.h>
@@ -79,7 +79,7 @@ void setup() {
     }
   }
 
-  // Try HOME network 
+  // If no success try HOME network 
   if (WiFi.status() != WL_CONNECTED) {
     lcd.setCursor(0, 0);
     lcd.print("Connecting...");
@@ -110,11 +110,13 @@ void setup() {
 
 
 void loop() {
-  if (WiFi.status() == WL_CONNECTED) {    
+  if (WiFi.status() == WL_CONNECTED) {
+    // Call the AWS Lambda endpoints
     String data_dev = callAWS(host_dev, "D", api_key_dev);
     String data_test = callAWS(host_test, "T", api_key_test);
     String data_prod = callAWS(host_prod, "P", api_key_prod);
     
+    // Set the console
     setConsole(data_dev, data_test, data_prod);        
   } else {
     lcd.print("Wifi Conn lost   ");
@@ -122,7 +124,9 @@ void loop() {
 }
 
 
-
+/*
+ * Call the AWS endpoint
+ */
 String callAWS(const char* host, String env, String api_key) {
   
   // Print status character to the LCD
@@ -184,7 +188,7 @@ String callAWS(const char* host, String env, String api_key) {
 
 
 /*
- * Parse response JSON content and set console component status
+ * Parse the JSON response and set console status
  */
 void setConsole(String data_dev, String data_test, String data_prod) {
 
@@ -303,7 +307,7 @@ void setConsole(String data_dev, String data_test, String data_prod) {
 }
 
 /*
- * Initialize console leds and LCD
+ * Initialize the console leds and LCD
  */
 void initConsole() {
 
@@ -339,15 +343,13 @@ void initConsole() {
   lcd.clear();
 }
 
+/*
+ * JSON parser
+ */
 JsonObject& parseJSON(String payload) {
 
-  // Length (with one extra character for the null terminator)
   int str_len = payload.length() + 1; 
-  
-  // Prepare the character array (the buffer) 
   char json[str_len];
-  
-  // Copy it over 
   payload.toCharArray(json, str_len);
 
   const size_t capacity = 3*JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(4) + JSON_OBJECT_SIZE(8) + 800;
@@ -355,7 +357,6 @@ JsonObject& parseJSON(String payload) {
   DynamicJsonBuffer jsonBuffer(capacity);
   
   JsonObject& root = jsonBuffer.parseObject(json);  
-  //JsonObject& body = root["body"];
   
   bool body_alarms_raised = root["alarms_raised"];
   bool body_pipelines_running = root["pipelines_running"];
