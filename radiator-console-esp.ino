@@ -1,7 +1,7 @@
 /*
  * (c) Mika Mäkelä - 2019
  * 
- * The program for the electronic AWS Radiator Console.
+ * The program for the electronic AWS Dashboard Console.
  * Show AWS alerts and code pipeline status by LEDs and LCD.
  * The program is intended to run on the ESP8266 based boards.
  */
@@ -234,21 +234,21 @@ String callAWS(const char* host, String env, String api_key) {
 void setConsole(String data_dev, String data_test, String data_prod) {
 
 // ###### Parse JSON #######
-  JsonObject& json_dev = parseJSON(data_dev);
+  DynamicJsonDocument json_dev = parseJSON(data_dev);
   
   bool pipelines_running_dev = json_dev["pipelines_running"];
   bool pipelines_failed_dev = json_dev["pipelines_failed"];  
   const String pipes_failed_0_dev = json_dev["pipelines_failed_list"][0]; 
   const String pipes_running_0_dev = json_dev["pipelines_running_list"][0]; 
 
-  JsonObject& json_test = parseJSON(data_test);
+  DynamicJsonDocument json_test = parseJSON(data_test);
   
   bool pipelines_running_test = json_test["pipelines_running"];
   bool pipelines_failed_test = json_test["pipelines_failed"];  
   const String pipes_failed_0_test = json_test["pipelines_failed_list"][0]; 
   const String pipes_running_0_test = json_test["pipelines_running_list"][0]; 
 
-  JsonObject& json_prod = parseJSON(data_prod);
+  DynamicJsonDocument json_prod = parseJSON(data_prod);
   
   bool alarms_raised_prod = json_prod["alarms_raised"];  
   bool pipelines_running_prod = json_prod["pipelines_running"];
@@ -371,30 +371,24 @@ void initConsole() {
   lcd.setCursor(0, 0);
   lcd.print("  AWS Radiator  ");
   lcd.setCursor(0, 1);
-  lcd.print(" ver 07.03.2019 ");
+  lcd.print(" ver 27.03.2019 ");
 
   digitalWrite(PIPE_RUNNING_LED_DEV, HIGH);
   digitalWrite(PIPE_FAILED_LED_DEV, HIGH);
-  delay(1000);
   digitalWrite(PIPE_RUNNING_LED_TEST, HIGH);
   digitalWrite(PIPE_FAILED_LED_TEST, HIGH);
-  delay(1000);
   digitalWrite(PIPE_RUNNING_LED_PROD, HIGH);
   digitalWrite(PIPE_FAILED_LED_PROD, HIGH);
-  delay(1000);
   digitalWrite(ALARMS_LED, HIGH);
 
   delay(2000);
 
   digitalWrite(PIPE_RUNNING_LED_DEV, LOW);
   digitalWrite(PIPE_FAILED_LED_DEV, LOW);
-  delay(500);
   digitalWrite(PIPE_RUNNING_LED_TEST, LOW);
   digitalWrite(PIPE_FAILED_LED_TEST, LOW);
-  delay(500);
   digitalWrite(PIPE_RUNNING_LED_PROD, LOW);
   digitalWrite(PIPE_FAILED_LED_PROD, LOW);
-  delay(500);
   digitalWrite(ALARMS_LED, LOW);
 
   lcd.clear();
@@ -403,25 +397,20 @@ void initConsole() {
 /*
  * JSON parser
  */
-JsonObject& parseJSON(String payload) {
-
-  int str_len = payload.length() + 1; 
-  char json[str_len];
-  payload.toCharArray(json, str_len);
+DynamicJsonDocument parseJSON(String payload) {
 
   const size_t capacity = 2*JSON_ARRAY_SIZE(0) + JSON_ARRAY_SIZE(1) + JSON_OBJECT_SIZE(7) + 800;
 
-  DynamicJsonBuffer jsonBuffer(capacity);
+  DynamicJsonDocument doc(capacity);
+  deserializeJson(doc, payload);
   
-  JsonObject& root = jsonBuffer.parseObject(json);  
+  bool body_alarms_raised = doc["alarms_raised"];
+  bool body_pipelines_running = doc["pipelines_running"];
+  bool body_pipelines_failed = doc["pipelines_failed"];
   
-  bool body_alarms_raised = root["alarms_raised"];
-  bool body_pipelines_running = root["pipelines_running"];
-  bool body_pipelines_failed = root["pipelines_failed"];
-  
-  const char* body_alarms_list_0 = root["alarms_list"][0];
-  const char* body_pipelines_running_list_0 = root["pipelines_running_list"][0];
-  const char* body_pipelines_failed_list_0 = root["pipelines_failed_list"][0];
+  const String body_alarms_list_0 = doc["alarms_list"][0];
+  const String body_pipelines_running_list_0 = doc["pipelines_running_list"][0];
+  const String body_pipelines_failed_list_0 = doc["pipelines_failed_list"][0];
 
   Serial.println(body_alarms_raised);
   Serial.println(body_pipelines_running);
@@ -430,5 +419,5 @@ JsonObject& parseJSON(String payload) {
   Serial.println(body_pipelines_running_list_0);
   Serial.println(body_pipelines_failed_list_0);
 
-  return root;
+  return doc;
 }
