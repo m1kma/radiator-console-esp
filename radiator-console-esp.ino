@@ -251,6 +251,7 @@ void setConsole(String data_dev, String data_test, String data_prod) {
   DynamicJsonDocument json_prod = parseJSON(data_prod);
   
   bool alarms_raised_prod = json_prod["alarms_raised"];  
+  bool alarms_raised_history_prod = json_prod["alarms_raised_history"];  
   bool pipelines_running_prod = json_prod["pipelines_running"];
   bool pipelines_failed_prod = json_prod["pipelines_failed"];  
   const String alarms_0_prod = json_prod["alarms_list"][0];
@@ -332,6 +333,11 @@ void setConsole(String data_dev, String data_test, String data_prod) {
       delay(5000);
     }
     
+    if (alarms_raised_history_prod == true) {
+      
+
+    }
+
     if (pipelines_failed_prod == true) {
       lcd.setCursor(0,0);
       lcd.print("PROD Pipe fail: ");
@@ -404,20 +410,21 @@ DynamicJsonDocument parseJSON(String payload) {
   DynamicJsonDocument doc(capacity);
   deserializeJson(doc, payload);
   
-  bool body_alarms_raised = doc["alarms_raised"];
-  bool body_pipelines_running = doc["pipelines_running"];
-  bool body_pipelines_failed = doc["pipelines_failed"];
+  //bool body_alarms_raised = doc["alarms_raised"];
+  //bool body_pipelines_running = doc["pipelines_running"];
+  //bool body_pipelines_failed = doc["pipelines_failed"];
   
-  const String body_alarms_list_0 = doc["alarms_list"][0];
-  const String body_pipelines_running_list_0 = doc["pipelines_running_list"][0];
-  const String body_pipelines_failed_list_0 = doc["pipelines_failed_list"][0];
+  //const String body_alarms_list_0 = doc["alarms_list"][0];
+  //const String body_pipelines_running_list_0 = doc["pipelines_running_list"][0];
+  //const String body_pipelines_failed_list_0 = doc["pipelines_failed_list"][0];
 
-  Serial.println(body_alarms_raised);
-  Serial.println(body_pipelines_running);
-  Serial.println(body_pipelines_failed);
-  Serial.println(body_alarms_list_0);
-  Serial.println(body_pipelines_running_list_0);
-  Serial.println(body_pipelines_failed_list_0);
+  Serial.println(doc["alarms_raised"]);
+  Serial.println(doc["alarms_raised_history"]);
+  Serial.println(doc["pipelines_running"]);
+  Serial.println(doc["pipelines_failed"]);
+  Serial.println(doc["alarms_list"][0]);
+  Serial.println(doc["pipelines_running_list"][0]);
+  Serial.println(doc["pipelines_failed_list"][0];);
 
   return doc;
 }
