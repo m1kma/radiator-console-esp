@@ -112,6 +112,8 @@ void connectWifi() {
 
   // If no success try WORK2 network 
   if (WiFi.status() != WL_CONNECTED) {
+    lcd.clear();
+    delay(100);
     lcd.setCursor(0, 0);
     lcd.print("Connecting...");
     lcd.setCursor(0, 1);
@@ -132,6 +134,8 @@ void connectWifi() {
 
   // If no success try HOME network 
   if (WiFi.status() != WL_CONNECTED) {
+    lcd.clear();
+    delay(100);
     lcd.setCursor(0, 0);
     lcd.print("Connecting...");
     lcd.setCursor(0, 1);
@@ -282,6 +286,13 @@ void setConsole(String data_dev, String data_test, String data_prod) {
   for (int i=0; i < 5; i++) {
 
     bool all_ok = true;
+
+    // Blink the alarm led if history alarms exists
+    if (alarms_raised_history_prod == true && alarms_raised_prod == false) {      
+      digitalWrite(ALARMS_LED, HIGH);
+      delay(50);
+      digitalWrite(ALARMS_LED, LOW);
+    } 
   
     if (pipelines_failed_dev == true) {
       lcd.setCursor(0,0);
@@ -332,11 +343,6 @@ void setConsole(String data_dev, String data_test, String data_prod) {
       all_ok = false;
       delay(5000);
     }
-    
-    if (alarms_raised_history_prod == true) {
-      
-
-    }
 
     if (pipelines_failed_prod == true) {
       lcd.setCursor(0,0);
@@ -377,7 +383,7 @@ void initConsole() {
   lcd.setCursor(0, 0);
   lcd.print("  AWS Radiator  ");
   lcd.setCursor(0, 1);
-  lcd.print(" ver 27.03.2019 ");
+  lcd.print(" ver 07.04.2019 ");
 
   digitalWrite(PIPE_RUNNING_LED_DEV, HIGH);
   digitalWrite(PIPE_FAILED_LED_DEV, HIGH);
@@ -410,21 +416,23 @@ DynamicJsonDocument parseJSON(String payload) {
   DynamicJsonDocument doc(capacity);
   deserializeJson(doc, payload);
   
-  //bool body_alarms_raised = doc["alarms_raised"];
-  //bool body_pipelines_running = doc["pipelines_running"];
-  //bool body_pipelines_failed = doc["pipelines_failed"];
+  bool body_alarms_raised = doc["alarms_raised"];
+  bool body_pipelines_running = doc["pipelines_running"];
+  bool body_pipelines_failed = doc["pipelines_failed"];
+  bool body_pipelines_raised_history = doc["pipelines_raised_history"];
   
-  //const String body_alarms_list_0 = doc["alarms_list"][0];
-  //const String body_pipelines_running_list_0 = doc["pipelines_running_list"][0];
-  //const String body_pipelines_failed_list_0 = doc["pipelines_failed_list"][0];
+  const String body_alarms_list_0 = doc["alarms_list"][0];
+  const String body_pipelines_running_list_0 = doc["pipelines_running_list"][0];
+  const String body_pipelines_failed_list_0 = doc["pipelines_failed_list"][0];
 
-  Serial.println(doc["alarms_raised"]);
-  Serial.println(doc["alarms_raised_history"]);
-  Serial.println(doc["pipelines_running"]);
-  Serial.println(doc["pipelines_failed"]);
-  Serial.println(doc["alarms_list"][0]);
-  Serial.println(doc["pipelines_running_list"][0]);
-  Serial.println(doc["pipelines_failed_list"][0];);
+  Serial.println(body_alarms_raised);
+  Serial.println(body_pipelines_raised_history);
+  Serial.println(body_pipelines_running);
+  Serial.println(body_pipelines_failed);
+  Serial.println(body_alarms_list_0);
+  Serial.println(body_pipelines_running_list_0);
+  Serial.println(body_pipelines_failed_list_0);
+
 
   return doc;
 }
