@@ -31,7 +31,7 @@ const char* api_key_prod = SECRET_AWS_KEY_PROD;
 const int httpsPort = 443;
 
 // SHA1 fingerprint of the certificate
-const char* fingerprint = "A3 7E 7A F5 3F F0 91 A3 48 45 9E 94 76 AA 18 1A ED B1 FA 96";
+const char* fingerprint = "13 67 AF FD 46 8F ED 6F B3 28 29 94 6E 02 B1 E7 57 55 01 17";
 
 #define ALARMS_LED D0
 #define PIPE_RUNNING_LED_DEV D8
@@ -186,12 +186,13 @@ String callAWS(const char* host, String env, String api_key) {
     return "";
   }
 
-  if (!client.verify(fingerprint, host)) {
+  /*if (!client.verify(fingerprint, host)) {
+    lcd.setCursor(0, 0);
     Serial.println("certificate doesn't match");
     lcd.print("Cert not match");
     delay(10000);
     return "";
-  }
+  }*/
 
   String url = "/dev/status";
 
